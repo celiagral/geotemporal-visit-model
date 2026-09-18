@@ -1,0 +1,36 @@
+# Data files
+*.xlsx
+*.csv
+*.xls
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Credentials & Config
+credentials.json
+*.key
+config.yaml
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.backup
