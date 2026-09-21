@@ -273,32 +273,26 @@ CREATE OR REPLACE FUNCTION `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_vi
 )
 RETURNS FLOAT64
 AS (
-  -- Cálculo de ratio_horario
-  LET ratio_horario = SAFE_DIVIDE(
-    tiempo_ok_segundos,
-    tiempo_ok_segundos + tiempo_no_ok_segundos
-  );
+  -- PROBABILIDAD FINAL = producto de componentes (sin LET)
+  prob_espacial *
 
-  -- Cálculo de probabilidad temporal
-  LET prob_temporal = `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_temporal`(
+  -- Componente: Probabilidad temporal
+  `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_temporal`(
     tiempo_ok_segundos,
     dias_visita,
-    ratio_horario,
+    SAFE_DIVIDE(tiempo_ok_segundos, tiempo_ok_segundos + tiempo_no_ok_segundos),
     tipo_poc
-  );
+  ) *
 
-  -- Cálculo de factor de patrón horario
-  LET factor_patron = `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_horario`(
-    IFNULL(stddev_hora_minima, 999),  -- Si NULL → sin patrón (1 solo día)
+  -- Componente: Factor de patrón horario
+  `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_horario`(
+    IFNULL(stddev_hora_minima, 999),
     IFNULL(stddev_hora_maxima, 999),
     dif_horas_promedio,
     dias_visita,
     llega_antes_abrir,
     sale_despues_cerrar
-  );
-
-  -- PROBABILIDAD FINAL
-  prob_espacial * prob_temporal * factor_patron
+  )
 );
 
 
