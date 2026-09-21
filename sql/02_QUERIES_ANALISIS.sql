@@ -181,7 +181,7 @@ SELECT
     WHEN dif_horas >= 7
       AND hora_minima BETWEEN 7 AND 10
       AND hora_maxima BETWEEN 17 AND 20
-      AND dias_msisdn_ubicacion_PERIODO >= 4
+      AND dias_visita >= 4
       AND STDDEV(hora_minima) OVER (PARTITION BY msisdn, id_ubicacion) < 2
       AND STDDEV(hora_maxima) OVER (PARTITION BY msisdn, id_ubicacion) < 2
     THEN 1
@@ -566,56 +566,3 @@ SELECT
   ROUND(100.0 * SUM(CASE WHEN es_perdido_no_ok = 1 AND ratio_promedio >= 0.6 THEN 1 ELSE 0 END) /
     NULLIF(SUM(es_valido_actual), 0), 1) as pct_incremento
 FROM escenarios;
-
-
--- ============================================================================
--- QUERY 14: ANÁLISIS POR DÍA DE SEMANA
--- ============================================================================
-
-SELECT
-  DIA_SEMANA,
-  COUNT(*) as n_registros,
-  COUNT(DISTINCT msisdn) as n_usuarios,
-
-  -- Por clasificación
-  SUM(CASE WHEN clasificacion_actual = 'VALIDO_ACTUAL' THEN 1 ELSE 0 END) as n_validos,
-  SUM(CASE WHEN clasificacion_actual = 'PERDIDO_POR_NO_OK' THEN 1 ELSE 0 END) as n_perdidos_no_ok,
-
-  -- Promedios
-  ROUND(AVG(tiempo_ok_min), 1) as tiempo_ok_min_promedio,
-  ROUND(AVG(ratio_horario), 3) as ratio_promedio,
-  ROUND(AVG(prob_espacial), 4) as prob_espacial_promedio
-
-FROM BASE
-GROUP BY DIA_SEMANA
-ORDER BY
-  CASE DIA_SEMANA
-    WHEN 'MONDAY' THEN 1
-    WHEN 'TUESDAY' THEN 2
-    WHEN 'WEDNESDAY' THEN 3
-    WHEN 'THURSDAY' THEN 4
-    WHEN 'FRIDAY' THEN 5
-    WHEN 'SATURDAY' THEN 6
-    WHEN 'SUNDAY' THEN 7
-  END;
-
-
--- ============================================================================
--- FIN DE QUERIES DE ANÁLISIS
--- ============================================================================
-
--- RESUMEN DE QUERIES:
--- Query 1: Tabla BASE con variables derivadas
--- Query 2: Tabla BASE_CON_PATRONES con variabilidad horaria
--- Query 3: Resumen general
--- Query 4: Distribución por clasificación actual
--- Query 5: Distribución por bucket de tiempo
--- Query 6: Distribución por bucket de ratio
--- Query 7: Distribución por tipo de frecuencia
--- Query 8: Análisis de patrones horarios
--- Query 9: Impacto del filtro tiempo_no_ok = 0
--- Query 10: Usuarios recuperables con ratio alto
--- Query 11: Top usuarios con patrón laboral
--- Query 12: Top usuarios visitantes claros
--- Query 13: Escenarios de recuperación
--- Query 14: Análisis por día de semana
