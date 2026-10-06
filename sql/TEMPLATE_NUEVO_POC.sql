@@ -46,19 +46,22 @@ VALUES (
   -- - Concesionario: 900, 10800, 1800, 5400 (15 min - 3h, óptimo 30-90 min)
 
   -- =========================================================================
-  -- FRECUENCIA (en días) - Rango válido
+  -- FRECUENCIA (días) - Rango completo con óptimo (igual que tiempo)
   -- =========================================================================
-  -- Define el rango [min, max] de días aceptables para un visitante
+  -- min_valido < optimo_min <= optimo_max < max_valido
+  -- Funciona igual que tiempo: rango óptimo (1.0) y rangos de transición
 
-  1,                                     -- dias_minimo (< esto = posible ruido)
-  9,                                     -- dias_maximo (> esto = posible trabajador)
+  0,                                     -- dias_min_valido (< esto = ruido, 0 días)
+  12,                                    -- dias_max_valido (> esto = trabajador claro)
+  1,                                     -- dias_optimo_min (inicio rango óptimo)
+  5,                                     -- dias_optimo_max (fin rango óptimo)
 
   -- Ejemplos comunes:
-  -- - Concesionario: 1, 9 (comprar coche es raro, > 9 días sospechoso)
-  -- - Supermercado: 1, 14 (gente va varias veces/semana, > 14 días sospechoso)
-  -- - Restaurante: 1, 11 (comer fuera es frecuente, > 11 días sospechoso)
-  -- - Gym: 1, 19 (gente va mucho, pero > 19 días podría ser empleado)
-  -- - Banco: 1, 7 (ir al banco es poco frecuente, > 7 días raro)
+  -- - Concesionario: 0, 12, 1, 5 (visitante ideal: 1-5 días)
+  -- - Supermercado: 0, 18, 1, 8 (visitante frecuente: 1-8 días)
+  -- - Restaurante: 0, 14, 1, 6 (visitante frecuente: 1-6 días)
+  -- - Gym: 0, 22, 1, 12 (visitante MUY frecuente: 1-12 días)
+  -- - Banco: 0, 9, 1, 4 (visitante ocasional: 1-4 días)
 
   -- =========================================================================
   -- RATIOS (0.0 - 1.0)
@@ -174,7 +177,7 @@ INSERT INTO CONFIG_MODELO_PARAMETRIZADA VALUES (
   'GASOLINERA', 'Gasolineras',
   0.0, 24.0,                              -- 24h
   300, 3600, 600, 1200,                   -- 5-60 min, óptimo 10-20 min
-  1, 14,                                  -- Rango: 1-14 días (gente reposta seguido)
+  0, 18, 1, 8,                            -- Frecuencia: 0-18 días, óptimo 1-8
   0.60, 0.85,                             -- Flexible
   1.3, 3.0, 6.0, 55.0,                    -- Patrón intermedio
   0.18, 0.12, 0.08, 0.04,                 -- Umbrales flexibles
@@ -188,7 +191,7 @@ INSERT INTO CONFIG_MODELO_PARAMETRIZADA VALUES (
   'FARMACIA', 'Farmacias y parafarmacias',
   9.0, 21.0,                              -- 9-21h
   300, 3600, 600, 1800,                   -- 5-60 min, óptimo 10-30 min
-  1, 11,                                  -- Rango: 1-11 días
+  0, 14, 1, 6,                            -- Frecuencia: 0-14 días, óptimo 1-6
   0.70, 0.90,                             -- Intermedio
   1.3, 3.0, 6.0, 55.0,                    -- Patrón intermedio
   0.18, 0.12, 0.08, 0.04,                 -- Umbrales intermedios
@@ -202,7 +205,7 @@ INSERT INTO CONFIG_MODELO_PARAMETRIZADA VALUES (
   'GYM', 'Gimnasios y centros deportivos',
   6.0, 23.0,                              -- 6-23h (horario amplio)
   1800, 10800, 3600, 7200,                -- 30 min - 3h, óptimo 1-2h
-  1, 19,                                  -- Rango: 1-19 días (frecuencia muy alta normal)
+  0, 22, 1, 12,                           -- Frecuencia: 0-22 días, óptimo 1-12 (alta frecuencia normal)
   0.70, 0.85,                             -- Intermedio
   1.2, 3.0, 6.0, 55.0,                    -- Patrón intermedio
   0.16, 0.10, 0.06, 0.03,                 -- Umbrales más bajos (alta frecuencia normal)
