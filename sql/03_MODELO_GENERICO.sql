@@ -58,11 +58,6 @@ SELECT * FROM UNNEST([
     0.10 as umbral_posible,
     0.05 as umbral_dudoso,
 
-    -- PESOS (para ajuste fino)
-    1.0 as peso_espacial,
-    1.0 as peso_temporal,
-    1.0 as peso_patron,
-
     'Estricto. Visitas largas planificadas. Nadie vive al lado.' as notas
   ),
 
@@ -102,11 +97,6 @@ SELECT * FROM UNNEST([
     0.12 as umbral_probable,
     0.08 as umbral_posible,
     0.04 as umbral_dudoso,
-
-    -- PESOS
-    1.0 as peso_espacial,
-    1.0 as peso_temporal,
-    0.9 as peso_patron,  -- Menos peso al patrón (gente vive cerca)
 
     'Flexible. Vecinos frecuentes. Horarios variables.' as notas
   ),
@@ -148,11 +138,6 @@ SELECT * FROM UNNEST([
     0.08 as umbral_posible,
     0.04 as umbral_dudoso,
 
-    -- PESOS
-    1.0 as peso_espacial,
-    1.0 as peso_temporal,
-    0.95 as peso_patron,
-
     'Intermedio. Visitas cortas frecuentes. Algunos trabajadores.' as notas
   ),
 
@@ -193,11 +178,6 @@ SELECT * FROM UNNEST([
     0.08 as umbral_posible,
     0.04 as umbral_dudoso,
 
-    -- PESOS
-    1.0 as peso_espacial,
-    1.0 as peso_temporal,
-    0.95 as peso_patron,
-
     'Flexible. Muchos trabajadores pero también visitantes frecuentes.' as notas
   ),
 
@@ -237,11 +217,6 @@ SELECT * FROM UNNEST([
     0.15 as umbral_probable,
     0.10 as umbral_posible,
     0.05 as umbral_dudoso,
-
-    -- PESOS
-    1.0 as peso_espacial,
-    1.0 as peso_temporal,
-    1.0 as peso_patron,
 
     'Estricto. Visitas cortas planificadas. Horario reducido.' as notas
   )
@@ -389,8 +364,8 @@ AS (
       OR dias_visita = 1
       THEN 1.0
 
-    -- DEFAULT
-    ELSE 0.85
+    -- DEFAULT (conservador)
+    ELSE 0.60
   END
 );
 
@@ -425,17 +400,14 @@ CREATE OR REPLACE FUNCTION `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_vi
   stddev_trabajador_max FLOAT64,
   stddev_visitante_min FLOAT64,
   dif_horas_trabajador_min FLOAT64,
-  pct_fuera_horario_max FLOAT64,
-  peso_espacial FLOAT64,
-  peso_temporal FLOAT64,
-  peso_patron FLOAT64
+  pct_fuera_horario_max FLOAT64
 )
 RETURNS FLOAT64
 AS (
-  -- PROBABILIDAD FINAL = producto ponderado de componentes
-  POW(prob_espacial, peso_espacial) *
+  -- PROBABILIDAD FINAL = producto de componentes
+  prob_espacial *
 
-  POW(`mo-advertising-sta.ADVERTISING_TEST.calcular_prob_temporal_generica`(
+  `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_temporal_generica`(
     tiempo_ok_segundos,
     dias_visita,
     SAFE_DIVIDE(tiempo_ok_segundos, tiempo_ok_segundos + tiempo_no_ok_segundos),
@@ -447,9 +419,9 @@ AS (
     dias_maximo,
     ratio_minimo,
     ratio_optimo
-  ), peso_temporal) *
+  ) *
 
-  POW(`mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_generico`(
+  `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_generico`(
     IFNULL(stddev_hora_minima, 999),
     IFNULL(stddev_hora_maxima, 999),
     dif_horas_promedio,
@@ -463,7 +435,7 @@ AS (
     dif_horas_trabajador_min,
     pct_fuera_horario_max,
     dias_maximo
-  ), peso_patron)
+  )
 );
 
 
@@ -524,10 +496,7 @@ SELECT
   c.umbral_muy_probable,
   c.umbral_probable,
   c.umbral_posible,
-  c.umbral_dudoso,
-  c.peso_espacial,
-  c.peso_temporal,
-  c.peso_patron
+  c.umbral_dudoso
 
 FROM `mo-advertising-sta.ADVERTISING_TEST.VISITAS_UBICACION_GEO_TILES_CELIA_ISA_V2` v
 CROSS JOIN CONFIG_POC c
@@ -540,8 +509,7 @@ GROUP BY
   c.dias_minimo, c.dias_maximo,
   c.ratio_minimo, c.ratio_optimo, c.stddev_trabajador_max, c.stddev_visitante_min,
   c.dif_horas_trabajador_min, c.pct_fuera_horario_max,
-  c.umbral_muy_probable, c.umbral_probable, c.umbral_posible, c.umbral_dudoso,
-  c.peso_espacial, c.peso_temporal, c.peso_patron;
+  c.umbral_muy_probable, c.umbral_probable, c.umbral_posible, c.umbral_dudoso;
 
 
 -- Paso 3: Calcular probabilidades
@@ -577,10 +545,7 @@ SELECT
     stddev_trabajador_max,
     stddev_visitante_min,
     dif_horas_trabajador_min,
-    pct_fuera_horario_max,
-    peso_espacial,
-    peso_temporal,
-    peso_patron
+    pct_fuera_horario_max
   ) as prob_visita_final,
 
   -- Componentes individuales

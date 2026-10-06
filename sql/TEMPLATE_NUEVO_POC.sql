@@ -106,19 +106,21 @@ VALUES (
   -- - Intermedio: 0.18, 0.13, 0.08, 0.04
 
   -- =========================================================================
-  -- PESOS (ajuste fino)
+  -- PESOS (para ajustar importancia de componentes)
   -- =========================================================================
-  -- Valores por defecto: 1.0, 1.0, 1.0
-  -- Solo cambiar si sabes lo que haces
+  -- Ver docs/10_GUIA_PESOS.md para detalles completos
+  -- peso < 1.0 = suaviza (reduce impacto negativo de valores bajos)
+  -- peso = 1.0 = sin cambio (multiplicación normal)
+  -- peso > 1.0 = acentúa (penaliza más valores bajos)
 
-  1.0,                                   -- peso_espacial
-  1.0,                                   -- peso_temporal
-  1.0,                                   -- peso_patron
+  0.5,                                   -- peso_espacial (recomendado: 0.5 para la mayoría de POCs)
+  1.0,                                   -- peso_temporal (recomendado: mantener en 1.0)
+  1.0,                                   -- peso_patron (0.9-1.0 según tipo de POC)
 
-  -- Cuándo ajustar:
-  -- - Vecinos frecuentes (supermercado): peso_patron = 0.9
-  -- - Prob espacial poco confiable: peso_espacial = 0.8
-  -- - Visitas muy cortas críticas: peso_temporal = 1.1
+  -- Ajustes típicos:
+  -- - prob_espacial te baja mucho la probabilidad → peso_espacial = 0.3-0.5
+  -- - Muchos vecinos frecuentes → peso_patron = 0.9
+  -- - POC muy estricto → peso_patron = 1.0-1.2
 
   -- =========================================================================
   -- NOTAS (documentación)
@@ -176,7 +178,7 @@ INSERT INTO CONFIG_MODELO_PARAMETRIZADA VALUES (
   0.60, 0.85,                             -- Flexible
   1.3, 3.0, 6.0, 55.0,                    -- Patrón intermedio
   0.18, 0.12, 0.08, 0.04,                 -- Umbrales flexibles
-  1.0, 1.0, 0.95,                         -- Peso patrón ligeramente menor
+  0.5, 1.0, 0.95,                         -- Pesos
   'Flexible. Visitas muy cortas. 24h.'
 );
 
@@ -190,7 +192,7 @@ INSERT INTO CONFIG_MODELO_PARAMETRIZADA VALUES (
   0.70, 0.90,                             -- Intermedio
   1.3, 3.0, 6.0, 55.0,                    -- Patrón intermedio
   0.18, 0.12, 0.08, 0.04,                 -- Umbrales intermedios
-  1.0, 1.0, 0.95,                         -- Pesos estándar
+  0.5, 1.0, 0.95,                         -- Pesos
   'Intermedio. Visitas cortas. Algunos vecinos frecuentes.'
 );
 
@@ -204,7 +206,7 @@ INSERT INTO CONFIG_MODELO_PARAMETRIZADA VALUES (
   0.70, 0.85,                             -- Intermedio
   1.2, 3.0, 6.0, 55.0,                    -- Patrón intermedio
   0.16, 0.10, 0.06, 0.03,                 -- Umbrales más bajos (alta frecuencia normal)
-  1.0, 1.0, 0.90,                         -- Menos peso a patrón (frecuencia alta es normal)
+  0.5, 1.0, 0.9,                          -- Pesos (patrón ligeramente reducido por alta frecuencia normal)
   'Flexible. Alta frecuencia es normal. Jornadas largas aceptables.'
 );
 
