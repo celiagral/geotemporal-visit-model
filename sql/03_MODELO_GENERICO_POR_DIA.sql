@@ -43,9 +43,11 @@ SELECT * FROM UNNEST([
     1800 as tiempo_optimo_min,       -- 30 min
     5400 as tiempo_optimo_max,       -- 90 min
 
-    -- FRECUENCIA (días) - Rango válido
-    1 as dias_minimo,                -- Mínimo días para ser válido (< esto = ruido)
-    9 as dias_maximo,                -- Máximo días visitante (> esto = trabajador)
+    -- FRECUENCIA (días) - Rango completo con óptimo
+    0 as dias_min_valido,            -- Mínimo absoluto (< esto = ruido, 0 días)
+    12 as dias_max_valido,           -- Máximo absoluto (> esto = trabajador claro)
+    1 as dias_optimo_min,            -- Inicio rango óptimo (visitante ocasional)
+    5 as dias_optimo_max,            -- Fin rango óptimo (visitante frecuente)
 
     -- RATIOS
     0.80 as ratio_minimo,            -- Mínimo aceptable
@@ -92,8 +94,10 @@ SELECT * FROM UNNEST([
     3600 as tiempo_optimo_max,       -- 60 min
 
     -- FRECUENCIA (más permisivo)
-    1 as dias_minimo,
-    14 as dias_maximo,
+    0 as dias_min_valido,
+    18 as dias_max_valido,
+    1 as dias_optimo_min,
+    8 as dias_optimo_max,
 
     -- RATIOS (más flexible)
     0.50 as ratio_minimo,
@@ -137,8 +141,10 @@ SELECT * FROM UNNEST([
     2700 as tiempo_optimo_max,       -- 45 min
 
     -- FRECUENCIA
-    1 as dias_minimo,
-    11 as dias_maximo,
+    0 as dias_min_valido,
+    14 as dias_max_valido,
+    1 as dias_optimo_min,
+    6 as dias_optimo_max,
 
     -- RATIOS
     0.60 as ratio_minimo,
@@ -182,8 +188,10 @@ SELECT * FROM UNNEST([
     7200 as tiempo_optimo_max,       -- 2 horas
 
     -- FRECUENCIA
-    1 as dias_minimo,
-    11 as dias_maximo,
+    0 as dias_min_valido,
+    14 as dias_max_valido,
+    1 as dias_optimo_min,
+    6 as dias_optimo_max,
 
     -- RATIOS
     0.60 as ratio_minimo,
@@ -227,8 +235,10 @@ SELECT * FROM UNNEST([
     2400 as tiempo_optimo_max,       -- 40 min
 
     -- FRECUENCIA
-    1 as dias_minimo,
-    7 as dias_maximo,
+    0 as dias_min_valido,
+    9 as dias_max_valido,
+    1 as dias_optimo_min,
+    4 as dias_optimo_max,
 
     -- RATIOS
     0.75 as ratio_minimo,
@@ -357,35 +367,35 @@ CREATE OR REPLACE FUNCTION `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_
   stddev_visitante_min FLOAT64,
   dif_horas_trabajador_min FLOAT64,
   pct_fuera_horario_max FLOAT64,
-  dias_maximo INT64
+  dias_max_valido INT64
 )
 RETURNS FLOAT64
 AS (
   CASE
     -- CASO 1: Patrón laboral MUY claro
-    WHEN dias_visita_total > dias_maximo
+    WHEN dias_visita_total > dias_max_valido
       AND stddev_hora_minima < stddev_trabajador_max
       AND stddev_hora_maxima < stddev_trabajador_max
       AND dif_horas_promedio >= dif_horas_trabajador_min
       THEN 0.05
 
     -- CASO 2: Patrón laboral claro
-    WHEN dias_visita_total >= (dias_maximo - 1)
+    WHEN dias_visita_total >= (dias_max_valido - 1)
       AND stddev_hora_minima < (stddev_trabajador_max * 1.5)
       AND stddev_hora_maxima < (stddev_trabajador_max * 1.5)
       AND dif_horas_promedio >= dif_horas_trabajador_min
       THEN 0.1
 
     -- CASO 3: Probable trabajador
-    WHEN (dias_visita_total >= (dias_maximo - 1)
+    WHEN (dias_visita_total >= (dias_max_valido - 1)
           AND stddev_hora_minima < (stddev_trabajador_max * 2)
           AND stddev_hora_maxima < (stddev_trabajador_max * 2))
-      OR (dias_visita_total >= (dias_maximo - 4)
+      OR (dias_visita_total >= (dias_max_valido - 4)
           AND dif_horas_promedio >= (dif_horas_trabajador_min + 1))
       THEN 0.3
 
     -- CASO 4: Fuera de horario FRECUENTEMENTE
-    WHEN dias_visita_total >= (dias_maximo - 4)
+    WHEN dias_visita_total >= (dias_max_valido - 4)
       AND (pct_llega_antes > pct_fuera_horario_max OR pct_sale_despues > pct_fuera_horario_max)
       THEN 0.4
 
@@ -410,26 +420,31 @@ AS (
 -- ============================================================================
 -- PARTE 5: FUNCIÓN UDF - FACTOR DE FRECUENCIA (parametrizada)
 -- ============================================================================
+-- Igual que tiempo: min_valido, max_valido, optimo_min, optimo_max
 
 CREATE OR REPLACE FUNCTION `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_frecuencia_param`(
   dias_visita_total INT64,
-  dias_minimo INT64,
-  dias_maximo INT64
+  dias_min_valido INT64,
+  dias_max_valido INT64,
+  dias_optimo_min INT64,
+  dias_optimo_max INT64
 )
 RETURNS FLOAT64
 AS (
   CASE
-    -- Menor que mínimo
-    WHEN dias_visita_total < dias_minimo THEN 0.3
+    -- Menor que mínimo válido (ruido, 0 días)
+    WHEN dias_visita_total < dias_min_valido THEN 0.2
 
-    -- En el mínimo
-    WHEN dias_visita_total = dias_minimo THEN 1.0
+    -- Entre mínimo válido y óptimo mínimo (bajo pero válido)
+    WHEN dias_visita_total < dias_optimo_min THEN 0.6
 
-    -- Entre mínimo y máximo (gradiente)
-    WHEN dias_visita_total <= dias_maximo THEN
-      1.0 - (0.7 * (dias_visita_total - dias_minimo) / NULLIF(dias_maximo - dias_minimo, 0))
+    -- Rango óptimo (visitante ideal: 1-5 días típico)
+    WHEN dias_visita_total BETWEEN dias_optimo_min AND dias_optimo_max THEN 1.0
 
-    -- Mayor que máximo
+    -- Entre óptimo máximo y máximo válido (frecuente, algo sospechoso)
+    WHEN dias_visita_total < dias_max_valido THEN 0.7
+
+    -- Mayor que máximo válido (trabajador claro)
     ELSE 0.1
   END
 );
@@ -461,8 +476,10 @@ CREATE OR REPLACE FUNCTION `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_vi
   tiempo_max_valido INT64,
   tiempo_optimo_min INT64,
   tiempo_optimo_max INT64,
-  dias_minimo INT64,
-  dias_maximo INT64,
+  dias_min_valido INT64,
+  dias_max_valido INT64,
+  dias_optimo_min INT64,
+  dias_optimo_max INT64,
   ratio_minimo FLOAT64,
   ratio_optimo FLOAT64,
   stddev_trabajador_max FLOAT64,
@@ -509,8 +526,10 @@ AS (
   POWER(
     `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_frecuencia_param`(
       dias_visita_total,
-      dias_minimo,
-      dias_maximo
+      dias_min_valido,
+      dias_max_valido,
+      dias_optimo_min,
+      dias_optimo_max
     ) *
     `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_agregado_param`(
       IFNULL(stddev_hora_minima, 999),
@@ -523,7 +542,7 @@ AS (
       stddev_visitante_min,
       dif_horas_trabajador_min,
       pct_fuera_horario_max,
-      dias_maximo
+      dias_max_valido
     ),
     peso_patron
   )
@@ -571,8 +590,10 @@ SELECT
   c.tiempo_max_valido,
   c.tiempo_optimo_min,
   c.tiempo_optimo_max,
-  c.dias_minimo,
-  c.dias_maximo,
+  c.dias_min_valido,
+  c.dias_max_valido,
+  c.dias_optimo_min,
+  c.dias_optimo_max,
   c.ratio_minimo,
   c.ratio_optimo,
   c.stddev_trabajador_max,
@@ -596,7 +617,7 @@ GROUP BY
   v.msisdn, v.id_ubicacion, c.tipo_poc,
   c.hora_apertura, c.hora_cierre,
   c.tiempo_min_valido, c.tiempo_max_valido, c.tiempo_optimo_min, c.tiempo_optimo_max,
-  c.dias_minimo, c.dias_maximo,
+  c.dias_min_valido, c.dias_max_valido, c.dias_optimo_min, c.dias_optimo_max,
   c.ratio_minimo, c.ratio_optimo, c.stddev_trabajador_max, c.stddev_visitante_min,
   c.dif_horas_trabajador_min, c.pct_fuera_horario_max,
   c.umbral_muy_probable, c.umbral_probable, c.umbral_posible, c.umbral_dudoso,
@@ -655,8 +676,10 @@ SELECT
     p.tiempo_max_valido,
     p.tiempo_optimo_min,
     p.tiempo_optimo_max,
-    p.dias_minimo,
-    p.dias_maximo,
+    p.dias_min_valido,
+    p.dias_max_valido,
+    p.dias_optimo_min,
+    p.dias_optimo_max,
     p.ratio_minimo,
     p.ratio_optimo,
     p.stddev_trabajador_max,
@@ -690,8 +713,10 @@ SELECT
 
   `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_frecuencia_param`(
     p.dias_visita_total,
-    p.dias_minimo,
-    p.dias_maximo
+    p.dias_min_valido,
+    p.dias_max_valido,
+    p.dias_optimo_min,
+    p.dias_optimo_max
   ) as factor_frecuencia,
 
   `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_agregado_param`(
@@ -705,7 +730,7 @@ SELECT
     p.stddev_visitante_min,
     p.dif_horas_trabajador_min,
     p.pct_fuera_horario_max,
-    p.dias_maximo
+    p.dias_max_valido
   ) as factor_patron_agregado,
 
   -- Parámetros (para clasificación)
