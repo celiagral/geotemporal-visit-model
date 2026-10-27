@@ -80,47 +80,47 @@ SELECT * FROM UNNEST([
   -- SUPERMERCADOS (Mercadona, Lidl, Carrefour, etc.)
   -- =========================================================================
   STRUCT(
-    'SUPERMERCADO' as tipo_poc,
-    'Supermercados y tiendas de alimentación' as descripcion,
+  'SUPERMERCADO' as tipo_poc,
+  'Supermercados y tiendas de alimentación' as descripcion,
 
-    -- HORARIOS (más amplios)
-    8.0 as hora_apertura,
-    22.0 as hora_cierre,
+  -- HORARIOS
+  8.0 as hora_apertura,
+  22.0 as hora_cierre,
 
-    -- TIEMPOS DE VISITA
-    600 as tiempo_min_valido,        -- 10 min
-    7200 as tiempo_max_valido,       -- 2 horas
-    1200 as tiempo_optimo_min,       -- 20 min
-    3600 as tiempo_optimo_max,       -- 60 min
+  -- TIEMPOS DE VISITA
+  300 as tiempo_min_valido,        -- 5 min
+  7200 as tiempo_max_valido,       -- 2 horas
+  600 as tiempo_optimo_min,        -- 10 min
+  3600 as tiempo_optimo_max,       -- 60 min
 
-    -- FRECUENCIA (más permisivo)
-    0 as dias_min_valido,
-    18 as dias_max_valido,
-    1 as dias_optimo_min,
-    8 as dias_optimo_max,
+  -- FRECUENCIA (días)
+  0 as dias_min_valido,
+  18 as dias_max_valido,
+  1 as dias_optimo_min,
+  3 as dias_optimo_max,
 
-    -- RATIOS (más flexible)
-    0.50 as ratio_minimo,
-    0.80 as ratio_optimo,
+  -- RATIOS
+  0.50 as ratio_minimo,
+  0.80 as ratio_optimo,
 
-    -- PATRÓN HORARIO (más permisivo)
-    1.0 as stddev_trabajador_max,
-    3.0 as stddev_visitante_min,
-    6.0 as dif_horas_trabajador_min,
-    60.0 as pct_fuera_horario_max,
+  -- PATRÓN HORARIO
+  1.0 as stddev_trabajador_max,
+  3.0 as stddev_visitante_min,
+  6.0 as dif_horas_trabajador_min,
+  60.0 as pct_fuera_horario_max,
 
-    -- UMBRALES
-    0.18 as umbral_muy_probable,
-    0.12 as umbral_probable,
-    0.08 as umbral_posible,
-    0.04 as umbral_dudoso,
+  -- UMBRALES
+  0.18 as umbral_muy_probable,
+  0.12 as umbral_probable,
+  0.08 as umbral_posible,
+  0.04 as umbral_dudoso,
 
-    -- PESOS
-    0.5 as peso_espacial,      -- Suaviza (vecinos frecuentes, prob_espacial menos fiable)
-    1.0 as peso_temporal,
-    0.9 as peso_patron,        -- Reduce ligeramente (patrón menos relevante con vecinos)
+  -- PESOS
+  0.5 as peso_espacial,
+  1.0 as peso_temporal,
+  0.9 as peso_patron,
 
-    'Flexible. Vecinos frecuentes. Horarios variables.' as notas
+  'Flexible. Vecinos frecuentes. Óptimo: 10-60 min, 1-3 días.' as notas
   ),
 
   -- =========================================================================
@@ -498,51 +498,56 @@ AS (
   -- peso < 1.0 = suaviza (eleva valores bajos, reduce impacto negativo)
   -- peso = 1.0 = sin cambio
   -- peso > 1.0 = acentúa (penaliza más valores bajos)
+  -- GREATEST() protege contra valores negativos por errores de redondeo
 
-  POWER(prob_espacial, peso_espacial) *
+  POWER(GREATEST(0.0001, prob_espacial), peso_espacial) *
 
   -- Componente temporal del DÍA (prob_temporal_dia * factor_dia)
   POWER(
-    `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_temporal_dia_param`(
-      tiempo_ok_segundos,
-      SAFE_DIVIDE(tiempo_ok_segundos, tiempo_ok_segundos + tiempo_no_ok_segundos),
-      tiempo_min_valido,
-      tiempo_max_valido,
-      tiempo_optimo_min,
-      tiempo_optimo_max,
-      ratio_minimo,
-      ratio_optimo
-    ) *
-    `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_dia_param`(
-      dif_horas,
-      llega_antes_abrir,
-      sale_despues_cerrar,
-      dif_horas_trabajador_min
+    GREATEST(0.0001,
+      `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_temporal_dia_param`(
+        tiempo_ok_segundos,
+        SAFE_DIVIDE(tiempo_ok_segundos, tiempo_ok_segundos + tiempo_no_ok_segundos),
+        tiempo_min_valido,
+        tiempo_max_valido,
+        tiempo_optimo_min,
+        tiempo_optimo_max,
+        ratio_minimo,
+        ratio_optimo
+      ) *
+      `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_dia_param`(
+        dif_horas,
+        llega_antes_abrir,
+        sale_despues_cerrar,
+        dif_horas_trabajador_min
+      )
     ),
     peso_temporal
   ) *
 
   -- Componente de patrón AGREGADO (frecuencia * patron_agregado)
   POWER(
-    `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_frecuencia_param`(
-      dias_visita_total,
-      dias_min_valido,
-      dias_max_valido,
-      dias_optimo_min,
-      dias_optimo_max
-    ) *
-    `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_agregado_param`(
-      IFNULL(stddev_hora_minima, 999),
-      IFNULL(stddev_hora_maxima, 999),
-      dif_horas_promedio,
-      dias_visita_total,
-      pct_llega_antes,
-      pct_sale_despues,
-      stddev_trabajador_max,
-      stddev_visitante_min,
-      dif_horas_trabajador_min,
-      pct_fuera_horario_max,
-      dias_max_valido
+    GREATEST(0.0001,
+      `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_frecuencia_param`(
+        dias_visita_total,
+        dias_min_valido,
+        dias_max_valido,
+        dias_optimo_min,
+        dias_optimo_max
+      ) *
+      `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_agregado_param`(
+        IFNULL(stddev_hora_minima, 999),
+        IFNULL(stddev_hora_maxima, 999),
+        dif_horas_promedio,
+        dias_visita_total,
+        pct_llega_antes,
+        pct_sale_despues,
+        stddev_trabajador_max,
+        stddev_visitante_min,
+        dif_horas_trabajador_min,
+        pct_fuera_horario_max,
+        dias_max_valido
+      )
     ),
     peso_patron
   )
@@ -557,7 +562,7 @@ AS (
 CREATE OR REPLACE TEMP TABLE CONFIG_POC_DIA AS
 SELECT *
 FROM `mo-advertising-sta.ADVERTISING_TEST.CONFIG_MODELO_PARAMETRIZADA`
-WHERE tipo_poc = 'CONCESIONARIO';  -- CAMBIAR SEGÚN POC
+WHERE tipo_poc = 'SUPERMERCADO';  -- CAMBIAR SEGÚN POC
 
 
 -- Paso 2: Calcular ESTADÍSTICAS AGREGADAS por usuario-ubicación
@@ -610,7 +615,8 @@ SELECT
 
 FROM `mo-advertising-sta.ADVERTISING_TEST.VISITAS_UBICACION_GEO_TILES_CELIA_ISA_V2` v
 CROSS JOIN CONFIG_POC_DIA c
-WHERE v.poc = 'VOLVO_XC40-AON_ABR2026_4'  -- CAMBIAR SEGÚN CAMPAÑA
+WHERE --v.poc = 'VOLVO_XC40-AON_ABR2026_4'  -- CAMBIAR SEGÚN CAMPAÑA
+v.poc = 'NORGES_SEAFOOD-SALMON_AGO26'  -- CAMBIAR SEGÚN CAMPAÑA
   AND v.PERIODO = 'CAMPAIGN'
   AND v.tiempo_total_ok_dia > 0
 GROUP BY
@@ -745,7 +751,7 @@ FROM `mo-advertising-sta.ADVERTISING_TEST.VISITAS_UBICACION_GEO_TILES_CELIA_ISA_
 INNER JOIN PATRON_USUARIOS_PARAM p
   ON v.msisdn = p.msisdn
   AND v.id_ubicacion = p.id_ubicacion
-WHERE v.poc = 'VOLVO_XC40-AON_ABR2026_4'  -- CAMBIAR SEGÚN CAMPAÑA
+WHERE v.poc = 'NORGES_SEAFOOD-SALMON_AGO26'  -- CAMBIAR SEGÚN CAMPAÑA
   AND v.PERIODO = 'CAMPAIGN'
   AND v.tiempo_total_ok_dia > 0;
 
