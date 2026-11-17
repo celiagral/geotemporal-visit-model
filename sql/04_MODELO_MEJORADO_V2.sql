@@ -15,6 +15,56 @@
 
 
 -- ============================================================================
+-- PARTE 0: LIMPIEZA (OPCIONAL - Descomentar para borrar todo)
+-- ============================================================================
+-- Ejecuta esta sección si quieres limpiar todo lo creado por este script
+-- Útil para: re-ejecutar desde cero, testing, evitar conflictos
+
+/*
+-- ============================================================================
+-- 0.1 Borrar Tablas Finales
+-- ============================================================================
+DROP TABLE IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.VISITAS_FINALES_V2`;
+DROP TABLE IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.CONFIG_CALCULADA_V2`;
+DROP TABLE IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.CONFIG_POC_V2`;
+DROP TABLE IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.PERFILES_NEGOCIO_BASE`;
+
+
+-- ============================================================================
+-- 0.2 Borrar Funciones UDF
+-- ============================================================================
+DROP FUNCTION IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_temporal_dia_v2`;
+DROP FUNCTION IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_dia_v2`;
+DROP FUNCTION IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_frecuencia_v2`;
+DROP FUNCTION IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.calcular_factor_patron_agregado_v2`;
+DROP FUNCTION IF EXISTS `mo-advertising-sta.ADVERTISING_TEST.calcular_prob_final_v2`;
+
+
+-- ============================================================================
+-- 0.3 Borrar Tablas Temporales (se borran automáticamente al final de sesión)
+-- ============================================================================
+-- Las TEMP TABLES se borran automáticamente, pero si quieres forzar:
+DROP TABLE IF EXISTS validacion_config;
+DROP TABLE IF EXISTS CONFIG_POC_ACTIVA;
+DROP TABLE IF EXISTS DIAS_PASS1;
+DROP TABLE IF EXISTS DIAS_CLASIFICADOS_PASS1;
+DROP TABLE IF EXISTS PATRON_LIMPIO;
+
+
+-- ============================================================================
+-- 0.4 Confirmación
+-- ============================================================================
+SELECT
+  '✅ Limpieza completada' as status,
+  CURRENT_TIMESTAMP() as timestamp,
+  'Todas las tablas y funciones del modelo V2 han sido eliminadas' as mensaje;
+*/
+
+-- ⚠️ FIN SECCIÓN DE LIMPIEZA
+-- Para activar la limpieza: descomenta todo el bloque anterior (quita /* y */)
+
+
+-- ============================================================================
 -- PARTE 1: PERFILES BASE DE NEGOCIO (3 categorías fundamentales)
 -- ============================================================================
 
